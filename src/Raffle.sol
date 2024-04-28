@@ -28,10 +28,16 @@ import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
 
 
-contract Raffle is VRFConsumerBaseV2 {
+contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
 
-    error Raffle__SendMoreToEnterRaffle();
+    error Raffle__UpkeepNotNeeded(
+        uint256 currentBalance,
+        uint256 numPlayers,
+        uint256 raffleState
+    );
     error Raffle__TransferFailed();
+    error Raffle__SendMoreToEnterRaffle();
+    error Raffle__RaffleNotOpen();
 
     enum RaffleState {
         OPEN,
@@ -39,20 +45,43 @@ contract Raffle is VRFConsumerBaseV2 {
     }
 
     VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
+    uint64 private immutable i_subscriptionId;
+    bytes32 private immutable i_gasLane;
+    uint32 private immutable i_callbackGasLimit;
+    uint16 private constant REQUEST_CONFIRMATIONS = 3;
+    uint32 private constant NUM_WORDS = 1;
+
+    uint256 private immutable i_interval;
     uint256 immutable i_entranceFee;
     address payable[] private s_players;
     address private s_recentWinner;
     RaffleState private s_raffleState;
+    uint256 private s_lastTimeStamp;
 
     event RaffleEnter(address indexed player);
     event WinnerPicked(address indexed player);
+    event RequestedRaffleWinner(uint256 indexed requestId);
 
     constructor(
-        uint256 entranceFee
+        uint64 subscriptionId,
+        bytes32 gasLane,
+        uint256 interval,
+        uint256 entranceFee,
+        uint32 callbackGasLimit,
+        address vrfCoordinatorV2
     )VRFConsumerBaseV2(vrfCoordinatorV2){
         i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinatorV2);
+        i_gasLane = gasLane;
+        i_interval = interval;
+        i_subscriptionId = subscriptionId;
         i_entranceFee = entranceFee;
         s_raffleState = RaffleState.OPEN;
+        s_lastTimeStamp = block.timestamp;
+        i_callbackGasLimit = callbackGasLimit;
+        uint256 balance = address(this).balance;
+        if(balance > 0) {
+            payable(msg.sender).transfer(balance);
+        }
     }
 
     function enterRaffle() public payable {
@@ -60,14 +89,35 @@ contract Raffle is VRFConsumerBaseV2 {
             revert Raffle__SendMoreToEnterRaffle();
         }
         if(s_raffleState != RaffleState.OPEN) {
-            revert();
+            revert Raffle__RaffleNotOpen();
         }
         s_players.push(payable(msg.sender));
 
         emit RaffleEnter(msg.sender);
     }
 
-    function pickWinner() external {
+    function checkUpkeep(
+        bytes memory /* checkData */
+    ) public view override returns (bool upkeepNeeded, bytes memory /* performData */){
+        bool isOpen = RaffleState.OPEN == s_raffleState;
+        bool timePassed = ((block.timestamp - s_lastTimeStamp) > i_interval);
+        bool hasPlayers = s_players.length > 0;
+        bool hasBalance = address(this).balance > 0;
+        upkeepNeeded = (timePassed && isOpen && hasBalance && hasPlayers);
+        return (upkeepNeeded, "0x0");
+    }
+
+    function performUpkeep(bytes calldata /* performData */) external override {
+        (bool upkeepNeeded, ) = checkUpkeep("");
+
+        if(!upkeepNeeded){
+            revert Raffle__UpkeepNotNeeded(
+                address(this).balance,
+                s_players.length,
+                uint256(s_raffleState)
+            );
+        }
+
         s_raffleState = RaffleState.CALCULATING;
         uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane,
@@ -76,7 +126,9 @@ contract Raffle is VRFConsumerBaseV2 {
             i_callbackGasLimit,
             NUM_WORDS
         );
+        emit RequestedRaffleWinner(requestId);
     }
+
 
     function fulfillRandomWords(
         uint256 /* requestId */,
@@ -87,6 +139,7 @@ contract Raffle is VRFConsumerBaseV2 {
         s_recentWinner = recentWinner;
         s_players = new address payable[](0);
         s_raffleState = RaffleState.OPEN;
+        s_lastTimeStamp = block.timestamp;
         emit WinnerPicked(recentWinner);
 
         (bool success, ) = recentWinner.call{value: address(this).balance}("");
