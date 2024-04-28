@@ -23,7 +23,12 @@
 
 pragma solidity ^0.8.19;
 
-contract Raffle {
+import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
+
+
+contract Raffle is VRFConsumerBaseV2 {
 
     error Raffle__SendMoreToEnterRaffle();
     error Raffle__TransferFailed();
@@ -33,6 +38,7 @@ contract Raffle {
         CALCULATING
     }
 
+    VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
     uint256 immutable i_entranceFee;
     address payable[] private s_players;
     address private s_recentWinner;
@@ -43,7 +49,8 @@ contract Raffle {
 
     constructor(
         uint256 entranceFee
-    ){
+    )VRFConsumerBaseV2(vrfCoordinatorV2){
+        i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinatorV2);
         i_entranceFee = entranceFee;
         s_raffleState = RaffleState.OPEN;
     }
@@ -60,8 +67,23 @@ contract Raffle {
         emit RaffleEnter(msg.sender);
     }
 
-    function pickWinner(uint256 index) external {
-        address payable recentWinner = s_players[index];
+    function pickWinner() external {
+        s_raffleState = RaffleState.CALCULATING;
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
+            i_gasLane,
+            i_subscriptionId,
+            REQUEST_CONFIRMATIONS,
+            i_callbackGasLimit,
+            NUM_WORDS
+        );
+    }
+
+    function fulfillRandomWords(
+        uint256 /* requestId */,
+        uint256[] memory randomWords
+    ) internal override {
+        uint256 indexOfWinner = randomWords[0] % s_players.length;
+        address payable recentWinner = s_players[indexOfWinner];
         s_recentWinner = recentWinner;
         s_players = new address payable[](0);
         s_raffleState = RaffleState.OPEN;
@@ -72,6 +94,5 @@ contract Raffle {
             revert Raffle__TransferFailed();
         }
     }
-
 
 }
