@@ -29,7 +29,7 @@ import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/inter
 
 
 contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
-
+    /* ERRORS */
     error Raffle__UpkeepNotNeeded(
         uint256 currentBalance,
         uint256 numPlayers,
@@ -39,11 +39,14 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
     error Raffle__SendMoreToEnterRaffle();
     error Raffle__RaffleNotOpen();
 
+    /* Type declarations */
     enum RaffleState {
         OPEN,
         CALCULATING
     }
 
+    /* State variables */
+    // Chainlink VRF Variables
     VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
     uint64 private immutable i_subscriptionId;
     bytes32 private immutable i_gasLane;
@@ -51,6 +54,7 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
     uint32 private constant NUM_WORDS = 1;
 
+    // Lottery Variables
     uint256 private immutable i_interval;
     uint256 immutable i_entranceFee;
     address payable[] private s_players;
@@ -58,10 +62,12 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
     RaffleState private s_raffleState;
     uint256 private s_lastTimeStamp;
 
+    /* Events */
     event RaffleEnter(address indexed player);
     event WinnerPicked(address indexed player);
     event RequestedRaffleWinner(uint256 indexed requestId);
 
+    /* Functions */
     constructor(
         uint64 subscriptionId,
         bytes32 gasLane,
@@ -84,6 +90,7 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         }
     }
 
+    //enter raffle
     function enterRaffle() public payable {
         if (msg.value < i_entranceFee) {
             revert Raffle__SendMoreToEnterRaffle();
@@ -96,6 +103,17 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         emit RaffleEnter(msg.sender);
     }
 
+    /**
+     * @dev This is the function that the Chainlink Keeper modes call they look for `upkeepNeeded` to return True
+     * the following should be true for this to return true:
+     * 1 The time interval has passed between raffle runs
+     * 2 The lottery is open
+     * 3 The contract has ETH
+     * 4 Impliciry, your subscription is funded with LINK
+     * @param 123
+     * @return upkeepNeeded 
+     * @return performData
+    */
     function checkUpkeep(
         bytes memory /* checkData */
     ) public view override returns (bool upkeepNeeded, bytes memory /* performData */){
@@ -107,6 +125,9 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         return (upkeepNeeded, "0x0");
     }
 
+    /**
+     * @dev Once `checkUpkeep` is returning `true`, this function is called and it kicks off a Chainlink VRF call to get a random winner.
+     */
     function performUpkeep(bytes calldata /* performData */) external override {
         (bool upkeepNeeded, ) = checkUpkeep("");
 
@@ -130,6 +151,9 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
     }
 
 
+    /**
+     * @dev This is the function that Chainlink VRF node calls to send the money to the random winner.
+     */
     function fulfillRandomWords(
         uint256 /* requestId */,
         uint256[] memory randomWords
@@ -148,4 +172,40 @@ contract Raffle is VRFConsumerBaseV2, AutomationCompatibleInterface {
         }
     }
 
+    /* Getter funstions */
+    function getRaffleState() public view returns (RaffleState) {
+        return s_raffleState;
+    }
+
+    function getNUmWords() public pure returns (uint256) {
+        return NUM_WORDS;
+    }
+
+    function getRequestConfirmations() public pure returns (uint256) {
+        return REQUEST_CONFIRMATIONS;
+    }
+
+    function getRecentWinner() public view returns (address) {
+        return s_recentWinner;
+    }
+
+    function getPlayer(uint256 index) public  view returns (address) {
+        return s_players[index];
+    }
+
+    function getLastTimestamp() public view returns (uint256) {
+        return s_lastTimeStamp;
+    }
+
+    function getInterval() public view returns (uint256) {
+        return i_interval;
+    }
+
+    function getEntranceFee() public view returns (uint256) {
+        return i_entranceFee;
+    }
+
+    function getNumberOfPlayers() public view returns (uint256) {
+        return s_players.length;
+    }
 }
