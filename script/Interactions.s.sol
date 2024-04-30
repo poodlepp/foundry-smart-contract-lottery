@@ -70,6 +70,50 @@ contract FunndSubScription is Script {
         fundSubscription(vrfCoordinatorV2,subId,link,deployerKey);
     }
 
+contract AddConsumer is Script {
+    function addConsumer(
+        address conntractToAddToVrf,
+        address vrfCoordinator,
+        uint64 subId,
+        uing256 deployerKey
+    ) public {
+        console.log("Adding consumer contract: ", contractToAddToVrf);
+        console.log("Using vrfCoordinator: ", vrfCoordinator);
+        console.log("On ChainID: ", block.chainid); 
+
+        vm.startBroadcast(deployerKey);
+        VRFCoordinatorV2Mock(vrfCoordinator).addConsumer(
+            subId,
+            contractToAddToVrf
+        );
+        vm.stopBroadcast();
+    }
+
+    function addConsumerUsingConfig(address mostRecentlyDeployed) public {
+        HelperConfig helperConfig = new HelperConfig();
+        (
+            uint64 subId,
+            ,
+            ,
+            ,
+            ,
+            address vrfCoordinatorV2,
+            ,
+            uint256 deployerKey
+        ) = helperConfig.activeNetworkConfig();
+        addConsumer(mostRecentlyDeployed,vrfCoordinatorV2,subId,deployerKey);
+    }
+
+    function run() external {
+        address mostRecentlyDeployed = DevOpsTools.get_most_recent_deployment(
+            "Raffle",
+            block.chainid
+        );
+        addConsumerUsingConfig(mostRecentlyDeployed);
+    }
+}
+
+
     functionn fundSubscription(
         address vrfCoordinatorV2,
         uint64 subId,
