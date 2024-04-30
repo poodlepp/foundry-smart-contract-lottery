@@ -61,6 +61,7 @@ contract HelperConfig is Script {
             gasPriceLink
         );
 
+        LinkToken link = new LinkToken();
         vm.stopBroadcast();
 
         emit HelperConfig__CreatedMockVRFCoordinator(
@@ -74,8 +75,8 @@ contract HelperConfig is Script {
             raffleEntranceFee: 0.01 ether,
             callbackGasLimit: 500000, // 500,000 gas
             vrfCoordinatorV2: address(vrfCoordinatorV2Mock),
-            // link: address(link),
-            link: address(0),
+            link: address(link),
+            // link: address(0),
             deployerKey: DEFAULT_ANVIL_PRIVATE_KEY
         });
     }    
