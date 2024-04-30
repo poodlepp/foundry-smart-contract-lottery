@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {VRFCoordinatorV2Mock} from "../test/mocks/VRFCoordinatorV2Mock.sol";
+import {LinkToken} from "../test/mocks/LinkToken.sol";
 import {Script} from "forge-std/Script.sol";
 
 contract HelperConfig is Script {

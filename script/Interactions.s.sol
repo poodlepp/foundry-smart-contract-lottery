@@ -43,39 +43,12 @@ contract CreateSubscription is Script {
     }
 }
 
-contract FunndSubScription is Script {
-    uint96 public constant FUND_AMOUNT = 3 ether;
-
-    function fundSubscriptionUsingConfig() public {
-        HelperConfig helperConfig = new HelperConfig();
-        (
-            uint64 subId,
-            ,
-            ,
-            ,
-            ,
-            address vrfCoordinatorV2,
-            address link,
-            uint256 deployerKey
-        ) = helperConfig.activeNetworkConfig();
-
-        if (subId == 0) {
-            CreateSubscription createSub = new CreateSubscription();
-            (uint64 updatedSubId, address updatedVRFv2) = createSub.run();
-            subId = updatedSubId;
-            vrfCoordinatorV2 = updatedVRFv2;
-            console.log("New SubId Created! ", subId, "VRF Address: ", vrfCoordinatorV2);
-        }
-
-        fundSubscription(vrfCoordinatorV2,subId,link,deployerKey);
-    }
-
 contract AddConsumer is Script {
     function addConsumer(
-        address conntractToAddToVrf,
+        address contractToAddToVrf,
         address vrfCoordinator,
         uint64 subId,
-        uing256 deployerKey
+        uint256 deployerKey
     ) public {
         console.log("Adding consumer contract: ", contractToAddToVrf);
         console.log("Using vrfCoordinator: ", vrfCoordinator);
@@ -113,8 +86,35 @@ contract AddConsumer is Script {
     }
 }
 
+contract FundSubscription is Script {
+    uint96 public constant FUND_AMOUNT = 3 ether;
 
-    functionn fundSubscription(
+    function fundSubscriptionUsingConfig() public {
+        HelperConfig helperConfig = new HelperConfig();
+        (
+            uint64 subId,
+            ,
+            ,
+            ,
+            ,
+            address vrfCoordinatorV2,
+            address link,
+            uint256 deployerKey
+        ) = helperConfig.activeNetworkConfig();
+
+        if (subId == 0) {
+            CreateSubscription createSub = new CreateSubscription();
+            (uint64 updatedSubId, address updatedVRFv2) = createSub.run();
+            subId = updatedSubId;
+            vrfCoordinatorV2 = updatedVRFv2;
+            console.log("New SubId Created! ", subId, "VRF Address: ", vrfCoordinatorV2);
+        }
+
+        fundSubscription(vrfCoordinatorV2,subId,link,deployerKey);
+    }
+
+
+    function fundSubscription(
         address vrfCoordinatorV2,
         uint64 subId,
         address link,
@@ -123,7 +123,7 @@ contract AddConsumer is Script {
         console.log("Funding subscription: ", subId);
         console.log("Using vrfCoordinator: ", vrfCoordinatorV2);
         console.log("On ChainID: ", block.chainid);
-        if(block.chainId == 31337) {
+        if(block.chainid == 31337) {
             vm.startBroadcast(deployerKey);
             VRFCoordinatorV2Mock(vrfCoordinatorV2).fundSubscription(
                 subId,

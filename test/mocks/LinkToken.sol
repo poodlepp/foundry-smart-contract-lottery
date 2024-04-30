@@ -6,10 +6,12 @@ pragma solidity ^0.8.0;
 import {ERC20} from "@solmate/tokens/ERC20.sol";
 
 interface ERC677Receiver {
+    function onTokenTransfer(
     address _sender,
     uint256 _value,
     bytes memory _data
-} external;
+    ) external;
+}
 
 contract LinkToken is ERC20 {
     uint256 constant INITIAL_SUPPLY = 1000000000000000000000000;
@@ -45,13 +47,13 @@ contract LinkToken is ERC20 {
         bytes memory _data
     ) private {
         ERC677Receiver receiver = ERC677Receiver(_to);
-        receiver.toTokenTransfer(msg.sender, _value, _data);
+        receiver.onTokenTransfer(msg.sender, _value, _data);
     }
 
-    funciton isContract(address _addr) private view returns (bool hasCode){
+    function isContract(address _addr) private view returns (bool hasCode){
         uint256 length;
         assembly {
-            length := extcodesize(addr)
+            length := extcodesize(_addr)
         }
         return length > 0;
     }
