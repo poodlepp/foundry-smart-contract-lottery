@@ -49,4 +49,13 @@ contract RaffleTest is StdCheats, Test {
     function testRaffleInitializesInOpenState() public view {
         assert(raffle.getRaffleState() == Raffle.RaffleState.OPEN);
     }
+
+    /////////////////////
+    // enterRaffle     //
+    /////////////////////
+    function testRaffleRevertsWhenYouDontPayEnough() public {
+        vm.prank(PLAYER);
+        vm.expectRevert(Raffle.Raffle__SendMoreToEnterRaffle.selector);
+        raffle.enterRaffle();
+    }
 }
