@@ -89,7 +89,7 @@ contract RaffleTest is StdCheats, Test {
     // checkUpkeep         //
     /////////////////////////
     function testCheckUpkeepReturnsFalseIfItHasNoBalance() public {
-        vm.warp(block.timetamp + automationUpdateInterval + 1);
+        vm.warp(block.timestamp + automationUpdateInterval + 1);
         vm.roll(block.number + 1);
 
         (bool upkeepNeeded, ) = raffle.checkUpkeep("");
@@ -103,6 +103,7 @@ contract RaffleTest is StdCheats, Test {
         vm.warp(block.timestamp + automationUpdateInterval + 1);
         vm.roll(block.number + 1);
         raffle.performUpkeep("");
+        Raffle.RaffleState raffleState = raffle.getRaffleState();
         //act
         (bool upkeepNeeded, ) = raffle.checkUpkeep("");
         //assert
@@ -113,7 +114,7 @@ contract RaffleTest is StdCheats, Test {
     function testCheckUpkeepReturnsFalseIfEnoughTimeHasntPassed() public {
         vm.prank(PLAYER);
         raffle.enterRaffle{value: raffleEntranceFee}();
-        vm.warp(block.timestamp + automationUpdateInterval) - 10;
+        vm.warp(block.timestamp + automationUpdateInterval - 10);
         vm.roll(block.number + 1);
 
         (bool upkeepNeeded, ) = raffle.checkUpkeep("");
@@ -135,6 +136,8 @@ contract RaffleTest is StdCheats, Test {
         assert(upkeepNeeded);
     }
 
-    
+        /////////////////////////
+    // performUpkeep       //
+    /////////////////////////
 
 }
