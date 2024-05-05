@@ -188,5 +188,70 @@ contract RaffleTest is StdCheats, Test {
         assert(uint(raffleState) == 1); // 0 = open, 1 = calculating
     }
 
-    
+    /////////////////////////
+    // fulfillRandomWords //
+    ////////////////////////
+    modifier raffleEntered() {
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: raffleEntranceFee}();
+        vm.warp(block.timestamp + automationUpdateInterval + 1);
+        vm.roll(block.number + 1);
+        _;
+    }
+
+    modifier skipFork() {
+        if(block.chainid != 31337) {
+            return;
+        }
+        _;
+    }
+
+    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep() public
+        raffleEntered
+        skipFork
+    {
+        vm.expectRevert("nonexistent request");
+
+        VRFCoordinatorV2Mock(vrfCoordinatorV2).fulfillRandomWords(
+            0,
+            address(raffle)
+        );
+    }
+
+    //uint256 randomRequestId   ????  fuzz test
+
+    function testFulfillRandomWordsPicksAWinnerResetsAndSendsMoney public 
+    raffleEntered
+    skipFork
+    {
+        address expectedWinner = address(1);
+        //arrange
+        uint256 additionalEntrances = 3;
+        uint256 startingIndex = 1;
+        for(
+            uint256 i = startingIndex;
+            i < startingIndex + additionalEntrances;
+            i++
+        ) {
+            address player = address(uint160(i));
+            hoax(player, 1 ether);
+            raffle.enterRaffle{value: raffleEntranceFee}();
+        }
+
+        uint256 startingTimestamp = raffle.getLastTimeStamp();
+        uint256 startingBalance = expectedWiner.balance;
+
+        //act 
+        vm.recordLogs();
+        raffle.performUpkeep("");
+        Vm.Log[] memory entries = vm.getRecordLogs();
+        bytes32 requestId = entries[1].topics[1];
+
+        VRFCoordinatorV2Mock(vrfCoordinatorV2).fulfillRandomWords(
+            uint256(requestId),
+            address(raffle)
+        );
+
+        //assert 
+    }
 }
