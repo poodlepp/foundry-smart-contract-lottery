@@ -8,6 +8,7 @@ import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {Test, console} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
+import {VRFCoordinatorV2Mock} from "../mocks/VRFCoordinatorV2Mock.sol";
 
 contract RaffleTest is StdCheats, Test {
         /* Errors */
@@ -220,7 +221,7 @@ contract RaffleTest is StdCheats, Test {
 
     //uint256 randomRequestId   ????  fuzz test
 
-    function testFulfillRandomWordsPicksAWinnerResetsAndSendsMoney public 
+    function testFulfillRandomWordsPicksAWinnerResetsAndSendsMoney() public 
     raffleEntered
     skipFork
     {
@@ -236,22 +237,37 @@ contract RaffleTest is StdCheats, Test {
             address player = address(uint160(i));
             hoax(player, 1 ether);
             raffle.enterRaffle{value: raffleEntranceFee}();
+            console.log("enterRaffle player:",i);
         }
 
-        uint256 startingTimestamp = raffle.getLastTimeStamp();
-        uint256 startingBalance = expectedWiner.balance;
+        uint256 startingTimestamp = raffle.getLastTimestamp();
+        uint256 startingBalance = expectedWinner.balance;
 
         //act 
         vm.recordLogs();
         raffle.performUpkeep("");
-        Vm.Log[] memory entries = vm.getRecordLogs();
+        Vm.Log[] memory entries = vm.getRecordedLogs();
         bytes32 requestId = entries[1].topics[1];
 
+        // 此处调用的是mock文件的方法，实际的网络中入参是不同的，所以fork测试是不会成功的
+        // 当然可以重造整个环境，不过那不是今天要做的
+        // skipFork
         VRFCoordinatorV2Mock(vrfCoordinatorV2).fulfillRandomWords(
             uint256(requestId),
             address(raffle)
         );
 
         //assert 
+        address recentWinner = raffle.getRecentWinner();
+        Raffle.RaffleState raffleState = raffle.getRaffleState();
+        uint256 winnerBalance = recentWinner.balance;
+        console.log("winnerBalance ", winnerBalance);
+        uint256 endingTimestamp = raffle.getLastTimestamp();
+        uint256 prize = raffleEntranceFee * (additionalEntrances + 1); 
+
+        assert(recentWinner == expectedWinner);
+        assert(uint256(raffleState) == 0);
+        assert(winnerBalance == startingBalance + prize);
+        assert(endingTimestamp > startingTimestamp);
     }
 }
